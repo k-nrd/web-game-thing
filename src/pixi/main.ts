@@ -1,22 +1,21 @@
-import { createChildContainer } from '../container'
-import { StartGame } from '../tokens'
+import { createGame } from '../game'
+import { config } from '../game/config'
+import { RuntimeContext } from '../types'
+import { createApp, createLoop } from './create'
+import { createRenderPipeline } from './systems'
 
-import { registerBindings, registerInjections } from './register'
-import { App, Loop } from './tokens'
+const runWith = createGame(config)
 
-const container = createChildContainer()
+const pixiRunner = (ctx: RuntimeContext) => {
+  const app = createApp(config)
+  const render = createRenderPipeline(ctx, app)
+  const loop = createLoop(ctx, render)
 
-registerInjections()
-registerBindings(container)
+  app.ticker.add((dt: number) => {
+    loop(dt)
+  })
 
-const app = container.get(App)
-const loop = container.get(Loop)
-const startGame = container.get(StartGame)
+  document.getElementById('app')?.appendChild(app.view)
+}
 
-app.ticker.add((dt) => {
-	loop(dt)
-})
-
-startGame()
-
-document.getElementById('app')?.appendChild(app.view)
+runWith(pixiRunner)

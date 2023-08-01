@@ -1,38 +1,27 @@
+import { IWorld } from 'bitecs'
 import * as PIXI from 'pixi.js'
 
-import type {
-	GameUpdateFunc,
-	IAssetsData,
-	IECSWorld,
-	IGameConfig,
-} from '../types'
-import { RenderPipeline } from './types'
+import type { GameConfig, RuntimeContext } from '../types'
 
-export function createApp(config: IGameConfig, assets: IAssetsData) {
-	const app = new PIXI.Application({
-		width: config.world.width,
-		height: config.world.height,
-	})
+export const createApp = (config: GameConfig) => {
+  const app = new PIXI.Application({
+    width: config.dimensions.world.width,
+    height: config.dimensions.world.height,
+  })
 
-	const logo = PIXI.Sprite.from(assets.logo.pixi.path)
-	logo.anchor.set(1, 1)
-	logo.position.set(config.world.width, config.world.height)
-	logo.alpha = 0.3
-
-	app.stage.addChild(logo)
-
-	return app
+  return app
 }
 
-export function createLoop(
-	world: IECSWorld,
-	gameUpdate: GameUpdateFunc,
-	render: RenderPipeline
-) {
-	return (dt: number) => {
-		world.dt = dt
+export const createLoop = (
+  { world, gameUpdate, startGame }: RuntimeContext,
+  render: (w: IWorld) => void
+) => {
+  startGame(world)
 
-		gameUpdate(world)
-		render(world)
-	}
+  return (dt: number) => {
+    world.dt = dt
+
+    gameUpdate(world)
+    render(world)
+  }
 }

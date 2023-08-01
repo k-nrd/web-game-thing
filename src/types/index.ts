@@ -1,74 +1,55 @@
 import type { IWorld } from 'bitecs'
-import type {
-	indexToTexture,
-	createBricks,
-	TextureKey,
-	textureToIndex,
-	createBall,
-	createPaddle,
-	createWalls,
-	gameUpdateCreator,
-	createLauncher,
-	startGame,
-} from '../game'
+import Matter from 'matter-js'
+import type { indexToTexture, TextureKey, textureToIndex } from '../game'
+import { GlobalState, KeyboardService } from '../game/services'
 
-export interface ISize {
-	width: number
-	height: number
+export interface Size {
+  width: number
+  height: number
 }
-export interface IGameConfig {
-	world: ISize
-	brick: ISize
-	ball: ISize
-	paddle: ISize
+export interface GameConfig {
+  dimensions: {
+    world: Size
+    brick: Size
+    ball: Size
+    paddle: Size
+  }
+  assets: AssetsData
+  layout: number[][]
 }
 
-export interface IECSWorld extends IWorld {
-	dt: number
+export type GameContext = {
+  config: GameConfig
+  globalState: GlobalState
+  textureToIndex: TextureToIndexFunc
+  indexToTexture: IndexToTextureFunc
+  physicsEngine: Matter.Engine
+  keyboard: KeyboardService
+}
+
+export type GameSystem = (world: ECSWorld) => ECSWorld
+
+export type RuntimeContext = GameContext & {
+  world: ECSWorld
+  update: (world: ECSWorld) => void
+  start: (world: ECSWorld) => void
+}
+
+export interface ECSWorld extends IWorld {
+  dt: number
 }
 export type ECSPipeline = (...input: unknown[]) => unknown
-export type GameUpdateFunc = ReturnType<typeof gameUpdateCreator>
-export type GameUpdateCreator = (world: IECSWorld) => GameUpdateFunc
 
 interface AssetDefinition {
-	key: TextureKey
-	path: string
+  key: TextureKey
+  path: string
 }
 
-export interface IAssetsData {
-	ball: AssetDefinition
-	paddle: AssetDefinition
-	brick: AssetDefinition
-	logo: {
-		phaser: Omit<AssetDefinition, 'key'>
-		pixi: Omit<AssetDefinition, 'key'>
-		react: Omit<AssetDefinition, 'key'>
-		three: Omit<AssetDefinition, 'key'>
-	}
+export interface AssetsData {
+  ball: AssetDefinition
+  paddle: AssetDefinition
+  brick: AssetDefinition
 }
 
 export type IndexToTextureFunc = typeof indexToTexture
 export type TextureToIndexFunc = typeof textureToIndex
-
-export type CreateBricksFunc = ReturnType<typeof createBricks>
-export type CreatePaddleFunc = ReturnType<typeof createPaddle>
-export type CreateBallFunc = ReturnType<typeof createBall>
-export type CreateWallsFunc = ReturnType<typeof createWalls>
-export type CreateLauncherFunc = ReturnType<typeof createLauncher>
-export type StartGameFunc = ReturnType<typeof startGame>
-
-export interface IKeyboardService {
-	readonly left: boolean
-	readonly right: boolean
-	readonly space: boolean
-}
-
-export interface IGlobalState {
-	readonly launcherEntityId: number
-	readonly paddleEntityId: number
-	readonly ballEntityId: number
-
-	setLauncherEntityId(eid: number): void
-	setPaddleEntityId(eid: number): void
-	setBallEntityId(eid: number): void
-}

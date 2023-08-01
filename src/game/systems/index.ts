@@ -1,235 +1,230 @@
 import {
-	addComponent,
-	defineQuery,
-	getEntityComponents,
-	pipe,
-	removeComponent,
-	removeEntity,
+  addComponent,
+  defineQuery,
+  getEntityComponents,
+  pipe,
+  removeComponent,
+  removeEntity,
 } from 'bitecs'
+import { GameContext, ECSWorld } from '../../types'
 import {
-	IECSWorld,
-	IGameConfig,
-	IGlobalState,
-	IKeyboardService,
-} from '../../types'
-import {
-	Ball,
-	ChangeVelocity,
-	Direction,
-	Follow,
-	Launcher,
-	ActiveState,
-	MovementInput,
-	Position,
-	RemoveAll,
-	PhysicsBody,
+  Ball,
+  ChangeVelocity,
+  Direction,
+  Follow,
+  Launcher,
+  ActiveState,
+  MovementInput,
+  Position,
+  RemoveAll,
+  PhysicsBody,
 } from '../components'
 
 import {
-	staticBody,
-	circleCollider,
-	createPhysicsUpdate,
-	changeVelocity,
-	boxCollider,
-	syncPositionPhysicsBody,
-	initPositionPhysicsBody,
-	friction,
-	bouncy,
-	getPhysicsBody,
-	setBodyVelocity,
-	setBodyPosition,
-	fixedRotation,
-	handleCollisions,
+  staticBody,
+  circleCollider,
+  createPhysicsUpdate,
+  changeVelocity,
+  boxCollider,
+  syncPositionPhysicsBody,
+  initPositionPhysicsBody,
+  friction,
+  bouncy,
+  getPhysicsBody,
+  setBodyVelocity,
+  setBodyPosition,
+  fixedRotation,
+  handleCollisions,
 } from './physics'
 
-export function keyboardInput(keyboard: IKeyboardService) {
-	const query = defineQuery([MovementInput])
-	return (world: IECSWorld) => {
-		const entities = query(world)
-		for (const eid of entities) {
-			let directions = 0
-			if (keyboard.left) {
-				directions |= Direction.Left
-			} else if (keyboard.right) {
-				directions |= Direction.Right
-			}
-			MovementInput.directions[eid] = directions
-		}
-		return world
-	}
+export const keyboardInput = ({ keyboard }: GameContext) => {
+  const query = defineQuery([MovementInput])
+
+  return (world: ECSWorld) => {
+    const entities = query(world)
+    for (const eid of entities) {
+      let directions = 0
+      if (keyboard.left) {
+        directions |= Direction.Left
+      } else if (keyboard.right) {
+        directions |= Direction.Right
+      }
+      MovementInput.directions[eid] = directions
+    }
+    return world
+  }
 }
 
-export function launcher(
-	config: IGameConfig,
-	keyboard: IKeyboardService,
-	globalState: IGlobalState
-) {
-	const query = defineQuery([Launcher])
-	return (world: IECSWorld) => {
-		const entities = query(world)
-		for (const eid of entities) {
-			if (Launcher.state[eid] === ActiveState.Disabled) {
-				continue
-			}
+export const launcher = ({ config, keyboard, globalState }: GameContext) => {
+  const query = defineQuery([Launcher])
 
-			if (!keyboard.space) {
-				continue
-			}
+  return (world: ECSWorld) => {
+    const entities = query(world)
+    for (const eid of entities) {
+      if (Launcher.state[eid] === ActiveState.Disabled) {
+        continue
+      }
 
-			const ballEid = globalState.ballEntityId
-			if (ballEid < 0) {
-				continue
-			}
+      if (!keyboard.space) {
+        continue
+      }
 
-			addComponent(world, ChangeVelocity, ballEid)
-			const middleX = config.world.width * 0.5
-			const x = Position.x[ballEid] ?? middleX
-			const diff = middleX - x
-			ChangeVelocity.x[ballEid] = Math.abs(diff) < 100 ? 0 : diff > 0 ? -10 : 10
-			ChangeVelocity.y[ballEid] = -10
+      const ballEid = globalState.ballEntityId
+      if (ballEid < 0) {
+        continue
+      }
 
-			Follow.state[ballEid] = ActiveState.Disabled
-			Launcher.state[eid] = ActiveState.Disabled
-		}
-		return world
-	}
+      addComponent(world, ChangeVelocity, ballEid)
+      const middleX = config.dimensions.world.width * 0.5
+      const x = Position.x[ballEid] ?? middleX
+      const diff = middleX - x
+      ChangeVelocity.x[ballEid] = Math.abs(diff) < 100 ? 0 : diff > 0 ? -10 : 10
+      ChangeVelocity.y[ballEid] = -10
+
+      Follow.state[ballEid] = ActiveState.Disabled
+      Launcher.state[eid] = ActiveState.Disabled
+    }
+    return world
+  }
 }
 
-export function loseBall(config: IGameConfig, globalState: IGlobalState) {
-	const query = defineQuery([Ball, Position])
-	return (world: IECSWorld) => {
-		const entities = query(world)
-		for (const eid of entities) {
-			const y = Position.y[eid]
-			if (y > config.world.height + 50) {
-				const body = getPhysicsBody(eid)
-				if (!body) {
-					console.error('loseBall: missing phyiscs body')
-					continue
-				}
+export const loseBall = ({ config, globalState }: GameContext) => {
+  const query = defineQuery([Ball, Position])
 
-				setBodyVelocity(body, 0, 0)
+  return (world: ECSWorld) => {
+    const entities = query(world)
+    for (const eid of entities) {
+      const y = Position.y[eid]
+      if (y > config.dimensions.world.height + 50) {
+        const body = getPhysicsBody(eid)
+        if (!body) {
+          console.error('loseBall: missing phyiscs body')
+          continue
+        }
 
-				const paddleEid = globalState.paddleEntityId
-				const x = Position.x[paddleEid] ?? Ball.startX[eid]
-				const y = Position.y[paddleEid]
-					? Position.y[paddleEid] - config.ball.height * 0.5
-					: Ball.startY[eid]
-				setBodyPosition(body, x, y)
+        setBodyVelocity(body, 0, 0)
 
-				if (globalState.launcherEntityId >= 0) {
-					Launcher.state[globalState.launcherEntityId] = ActiveState.Enabled
-				}
-				if (globalState.ballEntityId >= 0) {
-					Follow.state[globalState.ballEntityId] = ActiveState.Enabled
-				}
-			}
-		}
-		return world
-	}
+        const paddleEid = globalState.paddleEntityId
+        const x = Position.x[paddleEid] ?? Ball.startX[eid]
+        const y = Position.y[paddleEid]
+          ? Position.y[paddleEid] - config.dimensions.ball.height * 0.5
+          : Ball.startY[eid]
+        setBodyPosition(body, x, y)
+
+        if (globalState.launcherEntityId >= 0) {
+          Launcher.state[globalState.launcherEntityId] = ActiveState.Enabled
+        }
+        if (globalState.ballEntityId >= 0) {
+          Follow.state[globalState.ballEntityId] = ActiveState.Enabled
+        }
+      }
+    }
+    return world
+  }
 }
 
-export function removeAll() {
-	const query = defineQuery([RemoveAll])
-	return (world: IECSWorld) => {
-		const entities = query(world)
-		for (const eid of entities) {
-			const components = getEntityComponents(world, eid)
-			for (const comp of components) {
-				removeComponent(world, comp, eid)
-			}
-			removeEntity(world, eid)
-		}
-	}
+export const removeAll = (_context: GameContext) => {
+  const query = defineQuery([RemoveAll])
+
+  return (world: ECSWorld) => {
+    const entities = query(world)
+    for (const eid of entities) {
+      const components = getEntityComponents(world, eid)
+      for (const comp of components) {
+        removeComponent(world, comp, eid)
+      }
+      removeEntity(world, eid)
+    }
+    return world
+  }
 }
 
-function isDirectionActive(mask: number, bit: Direction) {
-	return (mask & bit) === bit
+const isDirectionActive = (mask: number, bit: Direction) => (mask & bit) === bit
+
+export const movement = (_context: GameContext) => {
+  const query = defineQuery([PhysicsBody, MovementInput])
+  const speed = 12
+
+  return (world: ECSWorld) => {
+    const entities = query(world)
+    for (const eid of entities) {
+      const body = getPhysicsBody(eid)
+      if (!body) {
+        continue
+      }
+
+      const mask = MovementInput.directions[eid]
+      const { x, y } = body.position
+      if (isDirectionActive(mask, Direction.Left)) {
+        setBodyPosition(body, x - speed, y)
+      } else if (isDirectionActive(mask, Direction.Right)) {
+        setBodyPosition(body, x + speed, y)
+      }
+    }
+    return world
+  }
 }
 
-export function movement() {
-	const query = defineQuery([PhysicsBody, MovementInput])
-	const speed = 12
-	return (world: IECSWorld) => {
-		const entities = query(world)
-		for (const eid of entities) {
-			const body = getPhysicsBody(eid)
-			if (!body) {
-				continue
-			}
+export const follow = (_context: GameContext) => {
+  const query = defineQuery([PhysicsBody, Follow])
 
-			const mask = MovementInput.directions[eid]
-			const { x, y } = body.position
-			if (isDirectionActive(mask, Direction.Left)) {
-				setBodyPosition(body, x - speed, y)
-			} else if (isDirectionActive(mask, Direction.Right)) {
-				setBodyPosition(body, x + speed, y)
-			}
-		}
-		return world
-	}
+  return (world: ECSWorld) => {
+    const entities = query(world)
+    for (const eid of entities) {
+      if (Follow.state[eid] === ActiveState.Disabled) {
+        continue
+      }
+
+      const body = getPhysicsBody(eid)
+      if (!body) {
+        continue
+      }
+
+      const bodyToFollow = getPhysicsBody(Follow.entityId[eid])
+      if (!bodyToFollow) {
+        continue
+      }
+
+      setBodyPosition(
+        body,
+        bodyToFollow.position.x + Follow.offsetX[eid],
+        bodyToFollow.position.y + Follow.offsetY[eid]
+      )
+    }
+    return world
+  }
 }
 
-export function follow() {
-	const query = defineQuery([PhysicsBody, Follow])
-	return (world: IECSWorld) => {
-		const entities = query(world)
-		for (const eid of entities) {
-			if (Follow.state[eid] === ActiveState.Disabled) {
-				continue
-			}
+export const createGameUpdate = (context: GameContext) => {
+  const prePhysics = pipe(
+    ...[
+      circleCollider,
+      boxCollider,
+      staticBody,
+      initPositionPhysicsBody,
+      friction,
+      bouncy,
+      fixedRotation,
 
-			const body = getPhysicsBody(eid)
-			if (!body) {
-				continue
-			}
+      keyboardInput,
+      launcher,
+      changeVelocity,
+      movement,
+      follow,
+    ].map((s) => s(context))
+  )
 
-			const bodyToFollow = getPhysicsBody(Follow.entityId[eid])
-			if (!bodyToFollow) {
-				continue
-			}
+  const postPhysics = pipe(
+    ...[handleCollisions, syncPositionPhysicsBody, loseBall, removeAll].map(
+      (s) => s(context)
+    )
+  )
 
-			setBodyPosition(
-				body,
-				bodyToFollow.position.x + Follow.offsetX[eid],
-				bodyToFollow.position.y + Follow.offsetY[eid]
-			)
-		}
-		return world
-	}
-}
+  const physicsUpdate = createPhysicsUpdate(context)
 
-export function gameUpdateCreator(
-	config: IGameConfig,
-	globalState: IGlobalState,
-	keyboard: IKeyboardService,
-	physicsEngine: Matter.Engine
-) {
-	const prePhysics = pipe(
-		circleCollider(physicsEngine),
-		boxCollider(physicsEngine),
-		staticBody(),
-		initPositionPhysicsBody(),
-		friction(),
-		bouncy(),
-		fixedRotation(),
-
-		keyboardInput(keyboard),
-		launcher(config, keyboard, globalState),
-		changeVelocity(),
-		movement(),
-		follow()
-	)
-	const postPhysics = pipe(
-		handleCollisions(physicsEngine),
-		syncPositionPhysicsBody(),
-		loseBall(config, globalState),
-		removeAll()
-	)
-	const physicsUpdate = createPhysicsUpdate(physicsEngine)
-	return (world: IECSWorld) => {
-		prePhysics(world)
-		physicsUpdate()
-		postPhysics(world)
-	}
+  return (world: ECSWorld) => {
+    prePhysics(world)
+    physicsUpdate()
+    postPhysics(world)
+  }
 }
