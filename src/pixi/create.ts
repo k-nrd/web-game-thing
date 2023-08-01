@@ -13,15 +13,15 @@ export const createApp = (config: GameConfig) => {
 }
 
 export const createLoop = (
-  { world, gameUpdate, startGame }: RuntimeContext,
+  { world, update, start }: RuntimeContext,
   render: (w: IWorld) => void
 ) => {
-  startGame(world)
+  start(world)
 
   return (dt: number) => {
     world.dt = dt
 
-    gameUpdate(world)
+    update(world)
     render(world)
   }
 }
