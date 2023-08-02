@@ -1,83 +1,72 @@
 import * as PIXI from 'pixi.js'
-import { defineQuery, enterQuery, exitQuery, IWorld, pipe } from 'bitecs'
+import { defineQuery, enterQuery, exitQuery } from 'bitecs'
 import { Position, Sprite, Tint } from '../../game'
-import { RuntimeContext } from '../../types'
+import { GameCtx } from '../runner'
 
 const sprites: PIXI.Sprite[] = []
 
-export const createSpriteCreator =
-  (app: PIXI.Application) =>
-  ({ config, indexToTexture }: RuntimeContext) => {
-    const query = defineQuery([Sprite])
-    const enter = enterQuery(query)
-    const exit = exitQuery(query)
+const spriteQuery = defineQuery([Sprite])
+const enterSprite = enterQuery(spriteQuery)
+const exitSprite = exitQuery(spriteQuery)
+const spritePositionQuery = defineQuery([Sprite, Position])
+const tintQuery = defineQuery([Sprite, Tint])
 
-    return (world: IWorld) => {
-      const enterEntities = enter(world)
-      for (const eid of enterEntities) {
-        const texId = Sprite.texture[eid]
-        const key = indexToTexture(texId)
-        const path = config.assets[key].path
-        const sprite = PIXI.Sprite.from(path)
-        sprite.anchor.set(0.5, 0.5)
-        app.stage.addChild(sprite)
-        sprites[eid] = sprite
-      }
-
-      const exitEntities = exit(world)
-      for (const eid of exitEntities) {
-        const sprite = sprites[eid]
-        sprite.destroy({
-          children: true,
-        })
-      }
-      return world
-    }
+export const createSprite = ({
+  config,
+  state: {
+    utils: { indexToTexture },
+  },
+  app,
+  world,
+}: GameCtx) => {
+  const enterEntities = enterSprite(world)
+  for (const eid of enterEntities) {
+    const texId = Sprite.texture[eid]
+    const key = indexToTexture(texId)
+    const path = config.assets[key].path
+    const sprite = PIXI.Sprite.from(path)
+    sprite.anchor.set(0.5, 0.5)
+    app.stage.addChild(sprite)
+    sprites[eid] = sprite
   }
 
-const positionSprite = () => {
-  const query = defineQuery([Sprite, Position])
-
-  return (world: IWorld) => {
-    const entities = query(world)
-    for (const eid of entities) {
-      const sprite = sprites[eid]
-      if (!sprite) {
-        continue
-      }
-
-      sprite.x = Position.x[eid]
-      sprite.y = Position.y[eid]
-    }
-
-    return world
+  const exitEntities = exitSprite(world)
+  for (const eid of exitEntities) {
+    const sprite = sprites[eid]
+    sprite.destroy({
+      children: true,
+    })
   }
 }
 
-const tintSprite = () => {
-  const query = defineQuery([Sprite, Tint])
-
-  return (world: IWorld) => {
-    const entities = query(world)
-    for (const eid of entities) {
-      const sprite = sprites[eid]
-      if (!sprite) {
-        continue
-      }
-
-      const tint = Tint.color[eid]
-      sprite.tint = tint
+const positionSprite = ({ world }: GameCtx) => {
+  const entities = spritePositionQuery(world)
+  for (const eid of entities) {
+    const sprite = sprites[eid]
+    if (!sprite) {
+      continue
     }
 
-    return world
+    sprite.x = Position.x[eid]
+    sprite.y = Position.y[eid]
   }
 }
 
-export const createRenderPipeline = (
-  context: RuntimeContext,
-  app: PIXI.Application
-) => {
-  const createSprite = createSpriteCreator(app)
+const tintSprite = ({ world }: GameCtx) => {
+  const entities = tintQuery(world)
+  for (const eid of entities) {
+    const sprite = sprites[eid]
+    if (!sprite) {
+      continue
+    }
 
-  return pipe(createSprite(context), positionSprite(), tintSprite())
+    const tint = Tint.color[eid]
+    sprite.tint = tint
+  }
+}
+
+export const render = (ctx: GameCtx) => {
+  createSprite(ctx)
+  positionSprite(ctx)
+  tintSprite(ctx)
 }
