@@ -2,6 +2,7 @@ import * as PIXI from 'pixi.js'
 import { defineQuery, enterQuery, exitQuery } from 'bitecs'
 import { Position, Sprite, Tint } from '../../game'
 import { GameCtx } from '../runner'
+import { state } from '../state'
 
 const sprites: PIXI.Sprite[] = []
 
@@ -11,18 +12,11 @@ const exitSprite = exitQuery(spriteQuery)
 const spritePositionQuery = defineQuery([Sprite, Position])
 const tintQuery = defineQuery([Sprite, Tint])
 
-export const createSprite = ({
-  config,
-  state: {
-    utils: { indexToTexture },
-  },
-  app,
-  world,
-}: GameCtx) => {
+export const createSprite = ({ config, app, world }: GameCtx) => {
   const enterEntities = enterSprite(world)
   for (const eid of enterEntities) {
     const texId = Sprite.texture[eid]
-    const key = indexToTexture(texId)
+    const key = state.utils.indexToTexture(texId)
     const path = config.assets[key].path
     const sprite = PIXI.Sprite.from(path)
     sprite.anchor.set(0.5, 0.5)

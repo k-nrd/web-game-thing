@@ -15,23 +15,29 @@ export type GameKeyboard<Config extends GameConfig> = {
   pressed: (i: keyof Config['inputs']) => boolean
 }
 
+export type GameAPI<Config extends GameConfig> = {
+  keyboard: GameKeyboard<Config>
+}
+
 export type GameConfig = {
   inputs: GameInputs
   app?: AppOptions
   physics?: PhysicsOptions
 }
 
-export type GameOptions<State extends any, Config extends GameConfig> = {
-  config: Config
-  initialState: State
-  update: (ctx: GameContext<State, Config>) => void
-  start: (ctx: GameContext<State, Config>) => void
-  render: (ctx: GameContext<State, Config>) => void
+export type ApiContext = {
+  name: string
 }
 
-export type GameContext<State extends any, Config extends GameConfig> = {
+export type GameOptions<Config extends GameConfig> = {
   config: Config
-  state: State
+  update: (ctx: GameContext<Config>) => void
+  start: (ctx: GameContext<Config>) => void
+  render: (ctx: GameContext<Config>) => void
+}
+
+export type GameContext<Config extends GameConfig> = {
+  config: Config
   app: Application
   physics: {
     engine: Engine

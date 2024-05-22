@@ -5,27 +5,15 @@ import {
   createLauncher,
   createPaddle,
   createWalls,
-  indexToTexture,
-  textureToIndex,
   update,
 } from '../game'
-import { GlobalState } from '../game/services'
 import { config } from './config'
 import { render } from './systems'
 
-const initialState = {
-  global: new GlobalState(),
-  utils: {
-    textureToIndex: textureToIndex,
-    indexToTexture: indexToTexture,
-  },
-} as const
+export type GameCtx = GameContext<typeof config>
 
-export type GameCtx = GameContext<typeof initialState, typeof config>
-
-export const run = createGame({
+export const { run, node, createComponent } = createGame({
   config,
-  initialState,
   update,
   start: (ctx: GameCtx) => {
     createBricks(ctx)

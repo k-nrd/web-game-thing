@@ -3,7 +3,7 @@ import {
   Ball,
   Bouncy,
   BoxCollider,
-  Brick,
+  brick,
   CircleCollider,
   FixedRotation,
   Follow,
@@ -18,7 +18,7 @@ import {
   Texture,
   Tint,
 } from '.'
-import { GameCtx } from '../pixi/runner'
+import { GameCtx, node } from '../pixi/runner'
 
 export const createBricks = ({
   config,
@@ -40,8 +40,8 @@ export const createBricks = ({
         continue
       }
 
-      const eid = addEntity(world)
-      addComponent(world, Brick, eid)
+      const eid = node([brick()])
+
       addComponent(world, PhysicsBody, eid)
       addComponent(world, BoxCollider, eid)
       BoxCollider.width[eid] = config.dimensions.brick.width

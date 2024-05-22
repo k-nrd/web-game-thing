@@ -1,4 +1,5 @@
 import { defineComponent, Types } from 'bitecs'
+import { createComponent } from '../../pixi/runner'
 
 export const Position = defineComponent({
 	x: Types.f64,
@@ -40,7 +41,7 @@ export const Ball = defineComponent({
 	followOffsetY: Types.f32,
 })
 
-export const Brick = defineComponent()
+export const [Brick, brick] = createComponent()
 export const Paddle = defineComponent()
 
 export const RemoveAll = defineComponent()

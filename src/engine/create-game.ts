@@ -1,17 +1,24 @@
-import { createWorld } from 'bitecs'
+import {
+  addComponent,
+  addEntity,
+  ComponentType,
+  createWorld,
+  defineComponent,
+  ISchema,
+} from 'bitecs'
 import { Engine } from 'matter-js'
 import { Application } from 'pixi.js'
 import { GameKeyboard } from '.'
 import { createKeyboard } from './input/keyboard'
 import { GameContext, GameOptions, GameConfig } from './types'
 
-export const createGame = <State extends any, Config extends GameConfig>({
+export const createGame = <Config extends GameConfig>({
+  name,
   config,
-  initialState,
   update,
   start,
   render,
-}: GameOptions<State, Config>) => {
+}: GameOptions<Config>) => {
   const world = createWorld({ dt: 0 })
 
   const app = new Application(config.app)
@@ -24,8 +31,7 @@ export const createGame = <State extends any, Config extends GameConfig>({
 
   const keyboard = createKeyboard(config.inputs) as GameKeyboard<Config>
 
-  const ctx: GameContext<typeof initialState, typeof config> = {
-    state: initialState,
+  const ctx: GameContext<typeof config> = {
     physics: {
       engine: physicsEngine,
       update: physicsUpdate,
@@ -35,6 +41,52 @@ export const createGame = <State extends any, Config extends GameConfig>({
     world,
     config,
   }
+
+  type ComponentSetter<S extends ISchema> = (args?: {
+    [K in keyof S]: number
+  }) => (eid: number) => void
+
+  const createComponent = <S extends ISchema>(
+    schema?: S,
+    size?: number
+  ): [ComponentType<S>, ComponentSetter<S>] => {
+    const component: ComponentType<S> = defineComponent<S>(schema, size)
+
+    const setter: ComponentSetter<S> = (args) => (eid) => {
+      if (args == null) return
+      for (const [prop, value] of Object.entries(args) as [keyof S, number][]) {
+        const compProp = component[prop]
+
+        if (compProp == null) {
+          throw new Error(`Component does not have prop '${prop}'`)
+        }
+
+        // @ts-expect-error: this is fine
+        if (compProp[eid] == null) {
+          addComponent(world, component, eid)
+        }
+
+        // @ts-expect-error: this is fine
+        compProp[eid] = value
+      }
+    }
+
+    return [component, setter]
+  }
+
+  const node = (setters: ReadonlyArray<(eid: number) => void>) => {
+    const eid = addEntity(world)
+    for (const set of setters) {
+      set(eid)
+    }
+    return eid
+  }
+
+  /**
+   const something = node([
+      pos({ x: 1, y : 0 })
+   ])
+   */
 
   const run = (elt: HTMLElement) => {
     start(ctx)
@@ -48,5 +100,5 @@ export const createGame = <State extends any, Config extends GameConfig>({
     elt.appendChild(app.view)
   }
 
-  return run
+  return { run, node, createComponent }
 }
